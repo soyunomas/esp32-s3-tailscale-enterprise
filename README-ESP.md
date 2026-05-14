@@ -1,10 +1,10 @@
 # ESP32-S3 Tailscale WPA2-Enterprise (Advertise Routes)
 
-Repetidor WiFi basado en **ESP32-S3** con soporte para **WPA2-Enterprise** y cliente **Tailscale** integrado (con capacidad de anunciar rutas LAN).
+Repetidor WiFi basado en **ESP32-S3** con soporte para **WPA2-Enterprise** y cliente **Tailscale** integrado con capacidad de anunciar rutas LAN.
 
 [🇺🇸 English version](README.md)
 
-Toda la configuración se realiza mediante una **interfaz web profesional** servida desde el propio dispositivo, con dark theme responsive.
+Toda la configuración se realiza mediante una interfaz web responsive embebida servida directamente desde el dispositivo.
 
 <p align="center">
   <a href="img/screenshot1.png"><img src="img/screenshot1.png" width="19%" alt="Dashboard" /></a>
@@ -18,7 +18,7 @@ Toda la configuración se realiza mediante una **interfaz web profesional** serv
 
 ### 🎓 WPA2-Enterprise y Repetidor WiFi
 - **STA+AP simultáneo** — Se conecta a una red WiFi (STA) y crea su propio punto de acceso (AP)
-- **WPA2-Enterprise** — Soporte EAP-PEAP/TTLS para redes corporativas/universitarias
+- **WPA2-Enterprise** — Compatible con configuraciones EAP-PEAP/TTLS usadas habitualmente en redes corporativas y universitarias (incluyendo eduroam)
 - **NAPT y Port Forwarding** — Traducción de direcciones de red para los clientes del AP y hasta 5 reglas de redirección de puertos
 - **SSID ocultable** — Opción para ocultar el SSID del AP sin cambiar contraseña, canal o DHCP
 - **Reconexión no bloqueante** — Reintentos STA con backoff, modo recovery y captive portal disponible
@@ -28,15 +28,15 @@ Toda la configuración se realiza mediante una **interfaz web profesional** serv
 - **Ping integrado** — Test de conectividad ICMP con resolución DNS
 
 ### 🛣️ Tailscale con Advertise Routes
-- **Cliente Tailscale embebido** — Mediante MicroLink (implementación nativa C/FreeRTOS)
-- **Advertise Routes (Subnet Router / Gateway SNAT)** — Anuncia rutas LAN con `Hostinfo.RoutableIPs` y hace SNAT hacia la LAN para acceder a equipos locales sin tocar el router principal
+- **Cliente Tailscale embebido** — Integración nativa C/FreeRTOS mediante MicroLink
+- **Advertise Routes (Subnet Router / Gateway SNAT)** — Anuncia rutas LAN mediante `Hostinfo.RoutableIPs` y realiza SNAT hacia la LAN, permitiendo acceso `Tailscale -> LAN` sin necesidad de rutas estáticas de retorno en el router principal
 - **IP VPN 100.x.y.z** — Se une a tu Tailnet como un nodo más
 - **Autenticación Noise IK** — Handshake criptográfico con `controlplane.tailscale.com:443`
 - **DERP relay** — Conexión con peers a través de relays globales cuando no hay conectividad directa
 - **Reconexión automática** — Tras cambios de WiFi o pérdida de conectividad
 
 ### 💻 Web UI
-- **Dark theme** — Diseño moderno responsive mobile-first, sin frameworks externos
+- **Responsive UI** — Diseño mobile-first responsive sin frameworks externos
 - **HTTP Basic Auth** — Credenciales configurables desde la interfaz
 - **Configuración completa** — Red WiFi, EAP, port forwarding, Tailscale, hostname, MACs y logging
 - **Log viewer** — Visor de logs en tiempo real (32KB buffer circular)
@@ -80,7 +80,7 @@ idf.py -B build_s3 -p /dev/ttyACM0 flash
 ### Monitor serie
 
 ```bash
-idf.py -p /dev/ttyACM0 monitor
+idf.py -B build_s3 -p /dev/ttyACM0 monitor
 # Salir: Ctrl+]
 ```
 
@@ -116,7 +116,7 @@ El aviso de Tailscale *"This device does not advertise itself as an exit node"* 
 | Modo | Repetidor WPA2-Enterprise | Port forwarding AP clients | Acceso Tailscale a LAN sin tocar router | Requiere ruta de retorno |
 |---|---|---|---|---|
 | Repeater / Tailscale node only | Sí | Sí | No | No |
-| Tailscale Gateway / SNAT with LAN route | No usable como repetidor | No | Sí | No |
+| Tailscale Gateway / SNAT with LAN route | Desactiva forwarding/NAPT del AP | No | Sí | No |
 
 #### Repeater / Tailscale node only
 Este es el modo predeterminado y seguro.
@@ -126,7 +126,7 @@ Este es el modo predeterminado y seguro.
 
 #### Tailscale Gateway / SNAT (Advertise Routes)
 Este modo está pensado para acceder de la VPN a la LAN (`Tailscale -> LAN`) sin modificar las rutas estáticas del router de la casa, haciendo SNAT en el ESP32.
-Activar **Expose LAN over Tailscale** anuncia la ruta LAN y fuerza el modo Gateway/SNAT. Desactiva el NAPT en el AP y activa NAPT solo en la interfaz WireGuard. El tráfico que entra por la VPN sale hacia la red local con la IP del ESP32.
+Activar **Expose LAN over Tailscale** anuncia la ruta LAN y fuerza el modo Gateway/SNAT. Desactiva el forwarding/NAPT del AP y activa NAPT solo en la interfaz WireGuard. El tráfico que entra por la VPN sale hacia la red local con la IP del ESP32.
 
 ### Troubleshooting Tailscale routes
 
@@ -141,58 +141,3 @@ Activar **Expose LAN over Tailscale** anuncia la ruta LAN y fuerza el modo Gatew
   curl -u admin:admin -X POST http://192.168.4.1/api/ota \
     --data-binary @firmware/wifi_repeater.bin
 ```
-
-## API REST
-
-El dispositivo expone una API REST completa para monitorización y configuración.  
-> 🔒 **Seguridad:** Todos los endpoints bajo `/api/*` requieren **HTTP Basic Auth** utilizando las credenciales de administración.
-
-| Endpoint | Método | Descripción |
-|---|:---:|---|
-| `/api/status` | `GET` | Estado general del sistema (STA, RSSI, MAC STA/AP, clientes, heap, uptime). |
-| `/api/wifi/state` | `GET` | Estado detallado de la conexión STA (`connected`, `retry_count`, `recovery`, `paused`). |
-| `/api/wifi/pause` | `POST` | Pausa la conexión upstream STA y detiene los reintentos automáticos. |
-| `/api/wifi/resume` | `POST` | Reanuda la conexión upstream STA y sus reintentos. |
-| `/api/scan` | `GET` | Inicia un escaneo de redes WiFi cercanas y devuelve los resultados. |
-| `/api/config` | `GET` | Obtiene la configuración actual (WiFi, AP, EAP, Port Forwarding, MACs, etc.). |
-| `/api/config` | `POST` | Aplica y guarda una nueva configuración en la memoria NVS. |
-| `/api/clients` | `GET` | Lista de clientes actualmente conectados al AP (IP y MAC). |
-| `/api/ping` | `POST` | Ejecuta un test ICMP. Payload requerido: `{"target":"8.8.8.8"}`. |
-| `/api/restart` | `POST` | Reinicia el dispositivo (Soft Reset). |
-| `/api/auth/check` | `GET` | Verifica la validez de las credenciales actuales. |
-| `/api/auth/change` | `POST` | Modifica las credenciales de acceso HTTP Basic Auth. |
-| `/api/ota` | `POST` | Endpoint para subida de binarios de actualización de firmware (OTA). |
-| `/api/factory-reset` | `POST` | Restaura los valores de fábrica borrando la NVS. |
-| `/api/logs` | `GET` | Obtiene el buffer circular de logs del sistema en formato `text/plain`. |
-| `/api/loglevel` | `POST` | Ajusta los niveles de log en tiempo de ejecución (Global y MicroLink). |
-| `/api/tailscale/status` | `GET` | Obtiene el estado actual de la conexión de Tailscale y sus peers. |
-| `/api/tailscale/config` | `GET` | Lee la configuración actual de Tailscale (Auth Key, Hostname, etc.). |
-| `/api/tailscale/config` | `POST` | Guarda y aplica la configuración de Tailscale. |
-
-## Estructura del Proyecto e Internos
-
-```
-┌──────────┐    WiFi AP    ┌──────────────┐    WiFi STA   ┌────────┐
-│ Cliente  │◄─────────────►│  ESP32-S3    │◄─────────────►│ Router │
-│ (móvil)  │  192.168.4.x  │  NAPT + DNS  │  192.168.1.x  │  (WAN) │
-└──────────┘               └──────┬───────┘               └────────┘
-                                  │
-                                  │ Tailscale
-                                  ▼
-                          ┌──────────────┐
-                          │   Tailnet    │
-                          │ 100.81.77.58 │
-                          └──────────────┘
-```
-
-## Repositorio
-[https://github.com/soyunomas/esp32-s3-tailscale-enterprise](https://github.com/soyunomas/esp32-s3-tailscale-enterprise)
-
-## Agradecimientos
-
-- **[CamM2325/microlink](https://github.com/CamM2325/microlink)**: Implementación nativa en C del protocolo Tailscale para ESP32.
-- **Espressif Systems**: Framework ESP-IDF.
-- **Tailscale**: Infraestructura y protocolos de la red VPN mesh.
-
-## Licencia
-MIT
