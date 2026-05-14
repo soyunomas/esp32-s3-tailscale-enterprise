@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>ESP32 WiFi Repeater</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+        <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <circle cx="12" cy="20" r="1"/>
+      </svg>
+      <h1>WiFi Repeater</h1>
+    </div>
+    <div class="status-dot" id="statusDot" title="Disconnected"></div>
+  </header>
+
+  <nav>
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="config">Config</button>
+    <button class="tab" data-tab="clients">Clients</button>
+    <button class="tab" data-tab="scheduler">Scheduler</button>
+    <button class="tab" data-tab="system">System</button>
+    <button class="tab" data-tab="logs">Logs</button>
+  </nav>
+
+  <!-- Dashboard -->
+  <section id="dashboard" class="panel active">
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon sta-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <circle cx="12" cy="20" r="1"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">Upstream</span>
+          <span class="card-value" id="staSSID">--</span>
+          <span class="card-sub" id="staIP">--</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon rssi-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="1" y="16" width="4" height="6"/>
+            <rect x="7" y="12" width="4" height="10"/>
+            <rect x="13" y="6" width="4" height="16"/>
+            <rect x="19" y="1" width="4" height="21"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">Signal</span>
+          <span class="card-value" id="staRSSI">-- dBm</span>
+          <div class="rssi-bar"><div class="rssi-fill" id="rssiFill"></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon clients-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">AP Clients</span>
+          <span class="card-value" id="apClients">0</span>
+          <span class="card-sub" id="apIP">192.168.4.1</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon sys-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">System</span>
+          <span class="card-value" id="freeHeap">-- KB</span>
+          <span class="card-sub" id="uptime">Uptime: --</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon ts-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3a9 9 0 0 0 0 18"/>
+            <path d="M3 12h18"/>
+            <path d="M12 3c2.5 2.7 3.8 5.7 3.8 9S14.5 18.3 12 21"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">Tailscale</span>
+          <span class="card-value" id="tsState">--</span>
+          <span class="card-sub" id="tsIP">--</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon sys-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="5" width="18" height="14" rx="2"/>
+            <path d="M7 9h10M7 13h10M7 17h6"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">WiFi MACs</span>
+          <span class="mac-line" id="staMAC">STA: --</span>
+          <span class="mac-line" id="apMAC">AP: --</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon sched-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <span class="card-label">Scheduler</span>
+          <span class="card-value" id="schedDashState">--</span>
+          <span class="card-sub" id="schedDashNext">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="wifi-control-section">
+      <div class="wifi-control-row">
+        <div class="wifi-control-copy">
+          <span class="wifi-state-pill" id="wifiStatePill">STA --</span>
+          <span class="wifi-state-meta" id="wifiStateMeta">Retry --</span>
+        </div>
+        <div class="wifi-control-actions">
+          <button class="btn btn-secondary btn-sm" id="btnWifiPause" onclick="pauseWifiSta()">Pause STA</button>
+          <button class="btn btn-secondary btn-sm" id="btnWifiResume" onclick="resumeWifiSta()">Resume STA</button>
+        </div>
+      </div>
+      <span class="wifi-state-note" id="wifiStateNote">AP remains available at 192.168.4.1</span>
+    </div>
+
+    <div class="ping-section">
+      <h3>Connectivity Test</h3>
+      <div class="ping-row">
+        <input type="text" id="pingTarget" placeholder="8.8.8.8 or google.com" value="8.8.8.8" autocomplete="off">
+        <button id="btnPing" class="btn btn-secondary btn-sm" onclick="doPing()">Ping</button>
+      </div>
+      <div id="pingResult" class="ping-result"></div>
+    </div>
+  </section>
+
+  <!-- Config -->
+  <section id="config" class="panel">
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <circle cx="12" cy="20" r="1"/>
+        </svg>
+        Upstream Network (STA)
+      </h2>
+      <div class="scan-row">
+        <button id="btnScan" class="btn btn-secondary" onclick="doScan()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Scan Networks
+        </button>
+      </div>
+      <div id="scanResults" class="scan-list" style="display:none"></div>
+      <div class="form-group">
+        <label for="staSSIDInput">SSID</label>
+        <input type="text" id="staSSIDInput" placeholder="Network name" maxlength="32" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="staPassInput">Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="staPassInput" placeholder="Network password" maxlength="64" autocomplete="off">
+          <button class="btn-eye" onclick="togglePass('staPassInput')">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="eapEnabled"> WPA2-Enterprise (EAP)
+        </label>
+      </div>
+      <div id="eapFields" style="display:none">
+        <div class="form-group">
+          <label for="eapIdentity">EAP Identity</label>
+          <input type="text" id="eapIdentity" placeholder="anonymous@corp.com" maxlength="64" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="eapUser">EAP Username</label>
+          <input type="text" id="eapUser" placeholder="user@corp.com" maxlength="32" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="eapPass">EAP Password</label>
+          <div class="pass-wrap">
+            <input type="password" id="eapPass" placeholder="EAP password" maxlength="64" autocomplete="off">
+            <button class="btn-eye" onclick="togglePass('eapPass')">👁</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <circle cx="12" cy="20" r="1"/>
+        </svg>
+        Access Point (AP)
+      </h2>
+      <div class="form-group">
+        <label for="apSSIDInput">AP SSID</label>
+        <input type="text" id="apSSIDInput" placeholder="Repeater name" maxlength="32" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="apHideSSID"> Hide AP SSID
+        </label>
+        <span class="field-note">The AP remains available with the same password, channel, DHCP and repeater behavior.</span>
+      </div>
+      <div class="form-group">
+        <label for="apPassInput">AP Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="apPassInput" placeholder="Min 8 characters" maxlength="64" autocomplete="off">
+          <button class="btn-eye" onclick="togglePass('apPassInput')">👁</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="apChannel">Channel</label>
+          <select id="apChannel">
+            <option value="0">Auto</option>
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+            <option value="10">10</option><option value="11">11</option>
+            <option value="12">12</option><option value="13">13</option>
+          </select>
+        </div>
+        <div class="form-group half">
+          <label for="apMaxConn">Max Clients</label>
+          <select id="apMaxConn">
+            <option value="1">1</option><option value="2">2</option>
+            <option value="3">3</option><option value="4" selected>4</option>
+            <option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option>
+            <option value="9">9</option><option value="10">10</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 3a9 9 0 0 0 0 18"/>
+          <path d="M3 12h18"/>
+          <path d="M12 3c2.5 2.7 3.8 5.7 3.8 9S14.5 18.3 12 21"/>
+        </svg>
+        Tailscale
+      </h2>
+      <div class="ts-status-line">
+        <span class="ts-pill" id="tsConfigState">--</span>
+        <span class="ts-meta" id="tsConfigIP">--</span>
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="tsEnabled"> Enable Tailscale
+        </label>
+      </div>
+      <div class="form-group">
+        <label for="tsAuthKey">Auth Key</label>
+        <div class="pass-wrap">
+          <input type="password" id="tsAuthKey" placeholder="Leave blank to keep current key" maxlength="127" autocomplete="off">
+          <button class="btn-eye" onclick="togglePass('tsAuthKey')">👁</button>
+        </div>
+        <span class="field-note" id="tsAuthKeyState">No key stored</span>
+      </div>
+      <div class="form-group">
+        <label for="tsDeviceName">Device Name</label>
+        <input type="text" id="tsDeviceName" placeholder="esp32-repeater" maxlength="31" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="tsControlHost">Control Host</label>
+        <input type="text" id="tsControlHost" placeholder="Default Tailscale" maxlength="95" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="tsMaxPeers">Max Peers</label>
+          <input type="number" id="tsMaxPeers" min="1" max="64" value="8">
+        </div>
+        <div class="form-group half">
+          <label>Status</label>
+          <input type="text" id="tsStatusText" value="--" readonly>
+        </div>
+      </div>
+      <div class="ts-options">
+        <label class="toggle-label toggle-sm"><input type="checkbox" id="tsDerp"> DERP</label>
+        <label class="toggle-label toggle-sm"><input type="checkbox" id="tsDisco"> DISCO</label>
+        <label class="toggle-label toggle-sm"><input type="checkbox" id="tsStun"> STUN</label>
+      </div>
+      <div class="ts-options">
+        <label class="toggle-label toggle-sm"><input type="checkbox" id="tsExposeLan"> Expose LAN over Tailscale</label>
+      </div>
+      <div class="form-group" id="tsCidrGroup" style="display:none">
+        <label for="tsAdvertiseCidr">Subnet CIDR</label>
+        <input type="text" id="tsAdvertiseCidr" placeholder="192.168.1.0/24" maxlength="95" autocomplete="off">
+      </div>
+      <div class="form-row" id="tsRouteStatusRow">
+        <div class="form-group half">
+          <label for="tsAdvertisedRoute">Advertised Route</label>
+          <input type="text" id="tsAdvertisedRoute" value="--" readonly>
+        </div>
+        <div class="form-group half">
+          <label for="tsRouteState">Route State</label>
+          <input type="text" id="tsRouteState" value="--" readonly>
+        </div>
+      </div>
+      <div class="form-group" id="tsSubnetModeGroup">
+        <label for="tsSubnetMode">Network Behavior</label>
+        <select id="tsSubnetMode" disabled>
+          <option value="0">Repeater mode</option>
+          <option value="1">Tailscale Gateway / SNAT / disables repeater</option>
+        </select>
+        <span class="field-note">Exposing the LAN uses Gateway/SNAT and reboots to apply NAT mode.</span>
+      </div>
+      <div class="notice danger" id="tsGatewayWarning" style="display:none">
+        Tailscale Gateway / SNAT disables the usable repeater path: AP NAPT and port forwarding to AP clients are unavailable. Save reboots the device to apply NAT mode.
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveTailscaleConfig()">Save Tailscale</button>
+        <button class="btn btn-secondary" onclick="clearTailscaleKey()">Clear Key</button>
+      </div>
+    </div>
+
+    <div class="config-section" id="portFwdSection">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+        Port Forwarding
+      </h2>
+      <div class="notice warning" id="pfModeWarning" style="display:none">
+        Port forwarding to AP clients is unavailable in Tailscale Gateway mode.
+      </div>
+      <div id="portFwdList"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addPortRule()" id="btnAddPort">+ Add Rule</button>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveConfig()">Save &amp; Apply</button>
+      <button class="btn btn-danger" onclick="restartDevice()">Restart</button>
+    </div>
+  </section>
+
+  <!-- Clients -->
+  <section id="clients" class="panel">
+    <div class="section-header">
+      <h2>Connected Clients</h2>
+      <button class="btn btn-secondary btn-sm" onclick="loadClients()">Refresh</button>
+    </div>
+    <div id="clientList" class="client-list">
+      <div class="empty-state">No clients connected</div>
+    </div>
+  </section>
+
+  <!-- Scheduler -->
+  <section id="scheduler" class="panel">
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+        </svg>
+        Device Time
+      </h2>
+      <div class="sched-status-grid">
+        <div><span>Local time</span><strong id="schedLocalTime">--</strong></div>
+        <div><span>NTP</span><strong id="schedNtpState">--</strong></div>
+        <div><span>AP</span><strong id="schedApState">--</strong></div>
+        <div><span>STA</span><strong id="schedStaState">--</strong></div>
+        <div><span>Tailscale</span><strong id="schedTsState">--</strong></div>
+        <div><span>Next change</span><strong id="schedNextChange">--</strong></div>
+      </div>
+      <div class="sched-primary-status" id="schedPrimaryStatus">
+        <strong>--</strong>
+        <span>--</span>
+      </div>
+      <div class="form-group">
+        <label for="schedTimezone">Timezone</label>
+        <select id="schedTimezone">
+          <option value="WET0WEST,M3.5.0/1,M10.5.0">Atlantic/Canary</option>
+          <option value="CET-1CEST,M3.5.0/2,M10.5.0/3">Europe/Madrid</option>
+          <option value="UTC0">UTC</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="syncSchedulerTime()">Sync now</button>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+        Operating Mode
+      </h2>
+      <div class="segmented">
+        <button class="seg-btn active" data-mode="0" onclick="setSchedulerMode(0)">Always on</button>
+        <button class="seg-btn" data-mode="1" onclick="setSchedulerMode(1)">Scheduled</button>
+        <button class="seg-btn" data-mode="2" onclick="setSchedulerMode(2)">Manual off</button>
+      </div>
+      <div class="notice warning" id="schedWarning" style="display:none"></div>
+    </div>
+
+    <div class="config-section">
+      <div class="section-header">
+        <h2>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+          </svg>
+          Schedule Rules
+        </h2>
+        <button class="btn btn-secondary btn-sm" onclick="addSchedulerRule()">Add rule</button>
+      </div>
+      <div class="sched-toolbar">
+        <button class="btn btn-secondary btn-sm" onclick="addWorkAccessRule()">Work 14-16</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearSchedulerRules()">Clear rules</button>
+      </div>
+      <div id="schedRules" class="sched-rules"></div>
+      <button class="btn btn-primary" onclick="saveScheduler()">Apply scheduler</button>
+    </div>
+  </section>
+
+  <!-- Logs -->
+  <section id="logs" class="panel">
+    <div class="section-header">
+      <h2>Device Logs</h2>
+      <div style="display:flex;gap:6px;align-items:center">
+        <label class="toggle-label toggle-sm"><input type="checkbox" id="logAutoRefresh" checked> Auto</label>
+        <button class="btn btn-secondary btn-sm" onclick="loadLogs()">Refresh</button>
+      </div>
+    </div>
+    <pre id="logContent" class="log-viewer">Loading...</pre>
+  </section>
+
+  <!-- System -->
+  <section id="system" class="panel">
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="16" rx="2"/>
+          <path d="M7 8h10M7 12h5M7 16h7"/>
+        </svg>
+        Device Identity
+      </h2>
+      <div class="form-group">
+        <label for="hostnameInput">Hostname</label>
+        <input type="text" id="hostnameInput" placeholder="esp32-repeater" maxlength="31" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="staRetryMax">STA Retry Max</label>
+          <input type="number" id="staRetryMax" min="1" max="20" value="5">
+        </div>
+        <div class="form-group half">
+          <label for="staBackoffS">STA Backoff Max (s)</label>
+          <input type="number" id="staBackoffS" min="1" max="300" value="30">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="staMacCustom"> Custom STA MAC
+        </label>
+        <input type="text" id="staMacInput" placeholder="02:00:00:00:00:01" maxlength="17" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="apMacCustom"> Custom AP MAC
+        </label>
+        <input type="text" id="apMacInput" placeholder="02:00:00:00:00:02" maxlength="17" autocomplete="off">
+        <span class="field-note">Vendor MACs are accepted. Multicast, all-zero and all-FF MACs are rejected.</span>
+      </div>
+      <button class="btn btn-primary" onclick="saveConfig()">Apply identity settings</button>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 17h16M4 12h16M4 7h16"/>
+        </svg>
+        Logging
+      </h2>
+      <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">
+        Bajar el nivel de logs reduce CPU y acelera la conexion Tailscale.
+        El nivel especifico de MicroLink se aplica sobre los tags <code>ml_*</code> y <code>wireguardif</code>.
+      </p>
+      <div class="form-group">
+        <label for="logLevelGlobal">System log level</label>
+        <select id="logLevelGlobal">
+          <option value="0">None</option>
+          <option value="1">Error</option>
+          <option value="2">Warn</option>
+          <option value="3">Info (default)</option>
+          <option value="4">Debug</option>
+          <option value="5">Verbose</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="logLevelMicrolink">MicroLink / WireGuard log level</label>
+        <select id="logLevelMicrolink">
+          <option value="0">None</option>
+          <option value="1">Error</option>
+          <option value="2">Warn (recommended)</option>
+          <option value="3">Info</option>
+          <option value="4">Debug</option>
+          <option value="5">Verbose</option>
+        </select>
+      </div>
+      <button id="btnApplyLogLevels" class="btn btn-primary" onclick="saveLogLevels()">Apply log levels</button>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Web Credentials
+      </h2>
+      <div class="form-group">
+        <label for="newUser">Username</label>
+        <input type="text" id="newUser" placeholder="Username" maxlength="32" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="newPass">New Password</label>
+        <div class="pass-wrap">
+          <input type="password" id="newPass" placeholder="Min 4 characters" maxlength="64" autocomplete="off">
+          <button class="btn-eye" onclick="togglePass('newPass')">👁</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="changeCredentials()">Update Credentials</button>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 16 12 12 8 16"/>
+          <line x1="12" y1="12" x2="12" y2="21"/>
+          <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+        </svg>
+        Firmware Update (OTA)
+      </h2>
+      <div class="form-group">
+        <label for="otaFile">Select firmware .bin file</label>
+        <input type="file" id="otaFile" accept=".bin">
+      </div>
+      <button class="btn btn-primary" id="btnOta" onclick="doOTA()">Upload &amp; Flash</button>
+      <div id="otaProgress" class="ota-progress" style="display:none">
+        <div class="ota-bar"><div class="ota-fill" id="otaFill"></div></div>
+        <span id="otaStatus" class="ota-status">Uploading...</span>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+        </svg>
+        Factory Reset
+      </h2>
+      <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Erase all settings and restore defaults. The device will reboot with factory configuration.</p>
+      <button class="btn btn-danger" onclick="factoryReset()">Factory Reset</button>
+    </div>
+
+    <div class="config-section">
+      <h2>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        Restart Device
+      </h2>
+      <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">Reboot the device keeping all current settings. The repeater will reconnect automatically.</p>
+      <button class="btn btn-danger" onclick="restartDevice()">Restart Device</button>
+    </div>
+  </section>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay" style="display:none">
+    <div class="login-box">
+      <div class="login-logo">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <circle cx="12" cy="20" r="1"/>
+        </svg>
+        <h2>WiFi Repeater</h2>
+      </div>
+      <div class="notice warning" style="margin-bottom:16px;font-size:.7rem">
+        <strong>Local HTTP Access:</strong> This connection is not encrypted (HTTP). Avoid using sensitive passwords that you reuse on other sites.
+      </div>
+      <div class="form-group">
+        <label for="loginUser">Username</label>
+        <input type="text" id="loginUser" placeholder="admin" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label for="loginPass">Password</label>
+        <input type="password" id="loginPass" placeholder="Password" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Login</button>
+      <div id="loginError" class="login-error" style="display:none">Invalid credentials</div>
+    </div>
+  </div>
+
+  <!-- Modal system -->
+  <div id="modalOverlay" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3 id="modalTitle">Confirm Action</h3>
+      <p id="modalBody"></p>
+      <div class="modal-actions">
+        <button id="modalBtnCancel" class="btn btn-secondary btn-sm">Cancel</button>
+        <button id="modalBtnOk" class="btn btn-primary btn-sm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

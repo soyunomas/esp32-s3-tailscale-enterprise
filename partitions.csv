@@ -1,0 +1,16 @@
+# Partition table para ESP32-S3 N16R8 (16 MB flash) con OTA dual.
+# Layout:
+#   nvs       0x9000   24K     ─ wifi/repeater/tailscale config
+#   otadata   0xf000   8K      ─ esp_ota_data slots
+#   phy_init  0x11000  4K
+#   ota_0     0x20000  ~8.06M  ─ slot OTA A
+#   ota_1     0x800000 ~8.06M  ─ slot OTA B
+# Total app: ~16.12M (de 16.0M de flash) — ojo: el último 0x20000 (128K)
+# del flash queda libre por alineación. Sin spiffs/storage adicional.
+#
+# Name,    Type, SubType, Offset,   Size,     Flags
+nvs,       data, nvs,     0x9000,   0x6000,
+otadata,   data, ota,     0xf000,   0x2000,
+phy_init,  data, phy,     0x11000,  0x1000,
+ota_0,     app,  ota_0,   0x20000,  0x7E0000,
+ota_1,     app,  ota_1,   0x800000, 0x7E0000,

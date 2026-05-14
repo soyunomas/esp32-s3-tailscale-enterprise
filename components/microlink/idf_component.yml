@@ -1,0 +1,12 @@
+## MicroLink — managed dependencies
+##
+## ESP-IDF 6.0 removed the bundled 'json' (cJSON) component (see
+## https://docs.espressif.com/projects/esp-idf/en/stable/esp32/migration-guides/release-6.x/6.0/protocols.html).
+## The cJSON API is now provided by the managed component 'espressif/cjson'.
+## MicroLink sources include "cJSON.h" directly; no source change is required.
+##
+## See docs/microlink-version.md for the local patches applied to this vendor
+## copy.
+
+dependencies:
+  espressif/cjson: "^1.7.18"
