@@ -304,7 +304,7 @@ static err_t wireguardif_output_to_peer(struct netif *netif, struct pbuf *q, con
 	}
 
 	// Note: We may not be able to use the current keypair if we haven't received data, may need to resort to using previous keypair
-	if (keypair->valid && (!keypair->initiator) && (keypair->last_rx == 0)) {
+	if (!keypair->valid || ((!keypair->initiator) && (keypair->last_rx == 0))) {
 		keypair = &peer->prev_keypair;
 	}
 
@@ -415,11 +415,15 @@ static err_t wireguardif_output_to_peer(struct netif *netif, struct pbuf *q, con
 	} else {
 		// No valid keys!
 		result = ERR_CONN;
-		ESP_LOGW(TAG, "WG_TX_DROP peer=%d reason=no_valid_keys curr_valid=%d prev_valid=%d curr_initiator=%d prev_initiator=%d curr_last_rx=%lu prev_last_rx=%lu",
-		         peer_idx, peer->curr_keypair.valid, peer->prev_keypair.valid,
-		         peer->curr_keypair.initiator, peer->prev_keypair.initiator,
-		         (unsigned long)peer->curr_keypair.last_rx,
-		         (unsigned long)peer->prev_keypair.last_rx);
+		static uint32_t last_log = 0;
+		if (wireguard_sys_now() - last_log > 5000) {
+			ESP_LOGW(TAG, "WG_TX_DROP peer=%d reason=no_valid_keys curr_valid=%d prev_valid=%d curr_initiator=%d prev_initiator=%d curr_last_rx=%lu prev_last_rx=%lu",
+			         peer_idx, peer->curr_keypair.valid, peer->prev_keypair.valid,
+			         peer->curr_keypair.initiator, peer->prev_keypair.initiator,
+			         (unsigned long)peer->curr_keypair.last_rx,
+			         (unsigned long)peer->prev_keypair.last_rx);
+			last_log = wireguard_sys_now();
+		}
 	}
 	return result;
 }
