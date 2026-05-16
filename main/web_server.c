@@ -1749,12 +1749,3 @@ esp_err_t web_server_start(repeater_config_t *config)
     ESP_LOGI(TAG, "HTTP server started on port %d", http_config.server_port);
     return ESP_OK;
 }
-
-void web_server_stop(void)
-{
-    if (s_server) {
-        httpd_stop(s_server);
-        s_server = NULL;
-        ESP_LOGI(TAG, "HTTP server stopped");
-    }
-}

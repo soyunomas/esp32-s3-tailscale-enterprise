@@ -29,12 +29,22 @@ CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=32768
 CONFIG_ESP_WIFI_SOFTAP_SUPPORT=y
 CONFIG_ESP_WIFI_ENTERPRISE_SUPPORT=y
 
+# AMPDU BA window 32 (era 6): mayor agregación 802.11n. Con 1-2 STA podemos
+# permitirnos ventanas grandes sin penalizar fairness multi-cliente.
+# IDF exige RX_BA_WIN <= 2 * STATIC_RX_BUFFER_NUM, por eso subimos a 16.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_TX_BA_WIN=32
+CONFIG_ESP_WIFI_RX_BA_WIN=32
+
 # lwIP - NAPT & IP Forward (no romper repetidor)
 CONFIG_LWIP_IP_FORWARD=y
 CONFIG_LWIP_IPV4_NAPT=y
 CONFIG_LWIP_MAX_SOCKETS=24
-CONFIG_LWIP_TCP_SND_BUF_DEFAULT=5744
-CONFIG_LWIP_TCP_WND_DEFAULT=5744
+# TCP windows ↑ a 64 KB (era 5744): elimina cuello de banda BDP en TCP
+# single-stream sobre Tailscale. Coste RAM: ~120 KB extra por socket activo
+# (aceptable con 8 MB PSRAM y SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y).
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=65535
+CONFIG_LWIP_TCP_WND_DEFAULT=65535
 CONFIG_LWIP_TCP_RECVMBOX_SIZE=16
 CONFIG_LWIP_UDP_RECVMBOX_SIZE=16
 CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=32
@@ -64,6 +74,30 @@ CONFIG_MBEDTLS_CHACHAPOLY_C=y
 
 # Task stack del main
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
+
+# --- Performance tuning para Tailscale (Tier 1) -----------------------------
+# CPU @ 240 MHz: el cómputo ChaCha20-Poly1305 / Noise / WG escala lineal.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=240
+
+# Compilador a -O2 (PERF) en app y en mbedTLS. ChaCha20-Poly1305 PSA cae
+# 30-40% en -Os; Noise + WG hot path otros 25% en -Og.
+CONFIG_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_COMPILER_OPTIMIZATION_DEBUG=n
+CONFIG_COMPILER_OPTIMIZATION_SIZE=n
+CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_PERF=y
+CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_SIZE=n
+CONFIG_MBEDTLS_COMPILER_OPTIMIZATION_NONE=n
+
+# Asserts: mantener detección de fallos críticos pero sin penalización.
+# SILENT = aborta sin imprimir mensaje (mantiene el chequeo barato).
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=n
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT=y
+
+# I-cache 32 KB (8 ways, line 32 B): el hot path Noise+WG no entra en 16 KB.
+CONFIG_ESP32S3_INSTRUCTION_CACHE_32KB=y
+CONFIG_ESP32S3_INSTRUCTION_CACHE_16KB=n
+CONFIG_ESP32S3_INSTRUCTION_CACHE_SIZE=0x8000
 
 # Logs / watchdog (igual que C3)
 # Default boot level INFO; runtime puede subir hasta VERBOSE via Web UI.

@@ -63,3 +63,8 @@ idf_component_register(
     REQUIRED_IDF_TARGETS
         esp32s3
 )
+
+# Vendor code uses many strncpy(dst, src, sizeof(dst)-1) patterns with
+# intentional truncation. Under -O2, GCC promotes -Wstringop-truncation to
+# error. Silence at component scope to avoid touching upstream code.
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=stringop-truncation)

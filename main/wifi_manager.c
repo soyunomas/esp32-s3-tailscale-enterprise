@@ -338,11 +338,6 @@ esp_err_t wifi_manager_set_subnet_routing(bool enable)
     return ESP_OK;
 }
 
-bool wifi_manager_is_subnet_routing(void)
-{
-    return s_subnet_routing;
-}
-
 /* ============================================================================
  * TCP Proxy - escucha en puertos externos y reenvia a destinos internos.
  * Soluciona el problema del trafico INPUT (misma LAN) que no pasa por NAPT.

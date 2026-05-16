@@ -387,8 +387,14 @@ static int noise_recv(microlink_t *ml, ml_noise_state_t *noise,
         return -1;
     }
 
-    uint8_t *ciphertext = ml_psram_malloc(ct_len);
-    if (!ciphertext) return -1;
+    /* Cached ciphertext buffer (max Noise frame: 65535 bytes, see ct_len uint16_t).
+     * noise_recv() is called only from coord_task — single-threaded, safe to reuse.
+     * Eliminates one PSRAM malloc/free per received Noise frame. */
+    static uint8_t *ciphertext = NULL;
+    if (!ciphertext) {
+        ciphertext = ml_psram_malloc(65536);
+        if (!ciphertext) return -1;
+    }
 
     /* Header already consumed — payload read MUST complete or stream
      * alignment is permanently lost. Retry EAGAIN (coord_recv returns -1
@@ -401,7 +407,6 @@ static int noise_recv(microlink_t *ml, ml_noise_state_t *noise,
         }
         ESP_LOGE(TAG, "noise_recv payload failed: ct_len=%d retries=%d errno=%d",
                  ct_len, payload_retries, errno);
-        free(ciphertext);
         return -1;
     }
 
@@ -410,12 +415,10 @@ static int noise_recv(microlink_t *ml, ml_noise_state_t *noise,
                           ciphertext, ct_len,
                           plaintext) != ESP_OK) {
         ESP_LOGE(TAG, "Noise decrypt failed (nonce=%llu)", (unsigned long long)noise->rx_nonce);
-        free(ciphertext);
         return -1;
     }
     noise->rx_nonce++;
 
-    free(ciphertext);
     return (int)pt_len;
 }
 
@@ -1076,13 +1079,16 @@ static int do_register(microlink_t *ml, ml_noise_state_t *noise) {
      * Scan each frame for H2 END_STREAM on stream 1 to break early
      * instead of blocking 60s waiting for more data that won't come. */
     bool got_register_end = false;
+    /* Hoisted out of the loop: avoid one PSRAM malloc/free per Noise frame received. */
+    uint8_t *frame_buf = ml_psram_malloc(4096);
+    if (!frame_buf) {
+        free(h2_resp);
+        free(resp_buf);
+        return -1;
+    }
     for (int frame_count = 0; frame_count < 10 && !got_register_end; frame_count++) {
-        uint8_t *frame_buf = ml_psram_malloc(4096);
-        if (!frame_buf) break;
-
         int frame_len = noise_recv(ml, noise, frame_buf, 4096);
         if (frame_len <= 0) {
-            free(frame_buf);
             break;
         }
 
@@ -1092,7 +1098,6 @@ static int do_register(microlink_t *ml, ml_noise_state_t *noise) {
             memcpy(h2_resp + h2_resp_len, frame_buf, frame_len);
             h2_resp_len += frame_len;
         }
-        free(frame_buf);
 
         /* Scan accumulated buffer for H2 END_STREAM on stream 1 */
         int scan = 0;
@@ -1111,6 +1116,7 @@ static int do_register(microlink_t *ml, ml_noise_state_t *noise) {
             scan += 9 + fl;
         }
     }
+    free(frame_buf);
 
     /* Parse H2 frames from accumulated buffer */
     bool got_end_stream = false;
@@ -1692,13 +1698,17 @@ static int do_fetch_peers(microlink_t *ml, ml_noise_state_t *noise) {
      * response is complete — without this, we wait for the full recv timeout
      * (60s) before proceeding, which dominates connection time on cellular. */
     bool got_end_stream = false;
+    /* Hoisted out of the loop: avoid one PSRAM malloc/free per Noise frame
+     * received (up to 200 iterations on large tailnets). */
+    uint8_t *frame_buf = ml_psram_malloc(65536);
+    if (!frame_buf) {
+        free(h2_recv);
+        free(resp_buf);
+        return -1;
+    }
     for (int read_count = 0; read_count < 200; read_count++) {
-        uint8_t *frame_buf = ml_psram_malloc(65536);
-        if (!frame_buf) break;
-
         int frame_len = noise_recv(ml, noise, frame_buf, 65536);
         if (frame_len <= 0) {
-            free(frame_buf);
             break;
         }
 
@@ -1709,10 +1719,8 @@ static int do_fetch_peers(microlink_t *ml, ml_noise_state_t *noise) {
             window_consumed += frame_len;
         } else {
             ESP_LOGW(TAG, "H2 buffer full at %dKB, truncating", (int)(h2_total / 1024));
-            free(frame_buf);
             break;
         }
-        free(frame_buf);
 
         /* Scan newly accumulated data for H2 END_STREAM flag.
          * H2 frame header: 3 bytes length + 1 byte type + 1 byte flags + 4 bytes stream ID.
@@ -1762,6 +1770,7 @@ static int do_fetch_peers(microlink_t *ml, ml_noise_state_t *noise) {
             window_consumed = 0;
         }
     }
+    free(frame_buf);
 
     /* Restore normal recv timeout (5 seconds for long-poll) */
     coord_set_recv_timeout(ml, 5000);
@@ -2289,13 +2298,17 @@ static int poll_map_update(microlink_t *ml, ml_noise_state_t *noise) {
     /* Data available — set short recv timeout for partial frame safety */
     coord_set_recv_timeout(ml, 2000);
 
-    uint8_t *frame_buf = ml_psram_malloc(65536);
-    if (!frame_buf) return 0;
+    /* Cached frame buffer (lazy-init, reused across all long-poll iterations).
+     * poll_map_update() runs only on coord_task — single-threaded, safe. */
+    static uint8_t *frame_buf = NULL;
+    if (!frame_buf) {
+        frame_buf = ml_psram_malloc(65536);
+        if (!frame_buf) return 0;
+    }
 
     int frame_len = noise_recv(ml, noise, frame_buf, 65536);
 
     if (frame_len <= 0) {
-        free(frame_buf);
         int saved_errno = errno;
         /* EAGAIN/EWOULDBLOCK = no data yet = not an error */
         if (saved_errno == EAGAIN || saved_errno == EWOULDBLOCK) return 0;
@@ -2367,7 +2380,6 @@ static int poll_map_update(microlink_t *ml, ml_noise_state_t *noise) {
 
     if (!json_data || json_data_len == 0) {
         /* Keepalive, SETTINGS, or PING frame - not an error */
-        free(frame_buf);
         return 1;  /* Got data, reset watchdog */
     }
 
@@ -2413,7 +2425,6 @@ static int poll_map_update(microlink_t *ml, ml_noise_state_t *noise) {
         cJSON_Delete(update_json);
     }
 
-    free(frame_buf);
     return 1;
 }
 

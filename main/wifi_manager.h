@@ -36,7 +36,6 @@ esp_err_t wifi_manager_set_ap_enabled(bool enabled);
 void wifi_manager_set_dns_handle(dns_server_handle_t handle);
 void wifi_manager_apply_port_forwarding(void);
 esp_err_t wifi_manager_set_subnet_routing(bool enable);
-bool wifi_manager_is_subnet_routing(void);
 
 typedef struct {
     bool success;
