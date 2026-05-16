@@ -1548,7 +1548,15 @@ void ml_wg_mgr_task(void *arg) {
     bool derp_was_connected = false;
     bool stun_cmm_sent = false;  /* One-shot: send CMMs after first STUN result */
 
-    while (!(xEventGroupGetBits(ml->events) & ML_EVT_SHUTDOWN_REQUEST)) {
+    while (true) {
+        /* Wait for packet, update, or periodic timeout (100ms) */
+        EventBits_t bits = xEventGroupWaitBits(ml->events,
+                                              ML_EVT_SHUTDOWN_REQUEST | ML_EVT_WG_MGR_WAKEUP,
+                                              pdFALSE, pdFALSE, pdMS_TO_TICKS(100));
+
+        if (bits & ML_EVT_SHUTDOWN_REQUEST) break;
+        xEventGroupClearBits(ml->events, ML_EVT_WG_MGR_WAKEUP);
+
         /* Process peer updates from coord task */
         process_peer_updates(ml);
 
@@ -1646,9 +1654,6 @@ void ml_wg_mgr_task(void *arg) {
             }
         }
 
-        /* Yield - 10ms loop rate for minimum packet processing latency.
-         * Each wake is cheap: queue check + event bits check, no crypto. */
-        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     /* Shutdown WireGuard interface */

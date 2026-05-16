@@ -290,6 +290,8 @@ static void route_derp_packet(microlink_t *ml, uint8_t *data, size_t len,
     QueueHandle_t target = (type == PKT_DISCO) ? ml->disco_rx_queue : ml->wg_rx_queue;
     if (xQueueSend(target, &pkt, 0) != pdTRUE) {
         free(data);
+    } else {
+        xEventGroupSetBits(ml->events, ML_EVT_WG_MGR_WAKEUP);
     }
 }
 
@@ -626,8 +628,9 @@ void ml_derp_tx_task(void *arg) {
             }
         }
 
-        /* Yield briefly */
-        vTaskDelay(pdMS_TO_TICKS(1));
+        /* Yield briefly - 10ms loop rate is sufficient for DERP polling
+         * and avoids busy-spinning when HZ=100. */
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     ESP_LOGI(TAG, "DERP I/O task exiting");

@@ -46,7 +46,7 @@ extern "C" {
 #define ML_TASK_NET_IO_CORE     0
 
 #define ML_TASK_DERP_TX_STACK   (14 * 1024)
-#define ML_TASK_DERP_TX_PRIO    5
+#define ML_TASK_DERP_TX_PRIO    7
 #define ML_TASK_DERP_TX_CORE    0
 
 #define ML_TASK_COORD_STACK     (18 * 1024)
@@ -179,6 +179,7 @@ typedef struct {
 #define ML_EVT_SHUTDOWN_REQUEST     BIT6
 #define ML_EVT_DERP_RECONNECT       BIT7
 #define ML_EVT_DERP_CONNECT_REQ     BIT8
+#define ML_EVT_WG_MGR_WAKEUP        BIT9
 
 /* ============================================================================
  * Queue Message Types

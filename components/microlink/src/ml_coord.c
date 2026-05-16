@@ -1399,6 +1399,8 @@ static void parse_peers_from_map_response(microlink_t *ml, cJSON *root) {
         if (xQueueSend(ml->peer_update_queue, &update, pdMS_TO_TICKS(100)) != pdTRUE) {
             ESP_LOGW(TAG, "Peer update queue full, dropping %s", update->hostname);
             free(update);
+        } else {
+            xEventGroupSetBits(ml->events, ML_EVT_WG_MGR_WAKEUP);
         }
     }
 
@@ -1428,8 +1430,9 @@ check_removed:
 
             if (xQueueSend(ml->peer_update_queue, &update, pdMS_TO_TICKS(100)) != pdTRUE) {
                 free(update);
-            }
-        }
+            } else {
+                xEventGroupSetBits(ml->events, ML_EVT_WG_MGR_WAKEUP);
+            }        }
     }
 
     /* Handle PeersChangedPatch — lightweight endpoint-only updates */
@@ -1492,8 +1495,9 @@ check_removed:
 
                     if (xQueueSend(ml->peer_update_queue, &update, pdMS_TO_TICKS(100)) != pdTRUE) {
                         free(update);
-                    }
-                }
+                    } else {
+                        xEventGroupSetBits(ml->events, ML_EVT_WG_MGR_WAKEUP);
+                    }                }
             }
             patch = patch->next;
         }

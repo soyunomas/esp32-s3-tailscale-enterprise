@@ -584,7 +584,6 @@ static void wireguardif_process_data_message(struct wireguard_device *device, st
 			pbuf = pbuf_alloc(PBUF_TRANSPORT, src_len - WIREGUARD_AUTHTAG_LEN, PBUF_RAM);
 			if (pbuf) {
 				// Decrypt the packet
-				memset(pbuf->payload, 0, pbuf->tot_len);
 				bool decrypt_ok = wireguard_decrypt_packet(pbuf->payload, src, src_len, nonce, keypair);
 				WG_DEBUG("[WG_DECRYPT] result=%d, src_len=%u, nonce=%llu\n",
 				       decrypt_ok, (unsigned)src_len, (unsigned long long)nonce);
@@ -681,7 +680,7 @@ static void wireguardif_process_data_message(struct wireguard_device *device, st
 									         device->netif->num, device->netif->napt,
 									         device->netif->flags);
 									WG_DEBUG("[WG_RX_IP] Passing %u bytes to IP layer\n", (unsigned)pbuf->tot_len);
-									ip_input(pbuf, device->netif);
+									device->netif->input(pbuf, device->netif);
 									// pbuf is owned by IP layer now
 									pbuf = NULL;
 								} else {
