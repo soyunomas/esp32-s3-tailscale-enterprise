@@ -1154,13 +1154,6 @@ static void process_disco_packet(microlink_t *ml, const ml_rx_packet_t *pkt) {
  * ========================================================================== */
 
 static void process_wg_packet(microlink_t *ml, const ml_rx_packet_t *pkt) {
-    ESP_LOGI(TAG, "WG RX queued: %d bytes, via_derp=%d, type=%d, udp_src=%d.%d.%d.%d:%u, derp_key=%02x%02x%02x%02x",
-             (int)pkt->len, pkt->via_derp,
-             pkt->len >= 4 ? pkt->data[0] : -1,
-             (int)((pkt->src_ip >> 24) & 0xFF), (int)((pkt->src_ip >> 16) & 0xFF),
-             (int)((pkt->src_ip >> 8) & 0xFF), (int)(pkt->src_ip & 0xFF),
-             (unsigned)pkt->src_port,
-             pkt->src_pubkey[0], pkt->src_pubkey[1], pkt->src_pubkey[2], pkt->src_pubkey[3]);
     if (!ml->wg_netif) {
         ESP_LOGW(TAG, "WG RX drop before decrypt: no wg_netif");
         free(pkt->data);
@@ -1636,7 +1629,9 @@ void ml_wg_mgr_task(void *arg) {
             wireguardif_periodic((struct netif *)ml->wg_netif);
             uint64_t dt = ml_get_time_ms() - t0;
             last_wg_periodic_ms = now;
-            ESP_LOGI(TAG, "wireguardif_periodic: %llu ms", (unsigned long long)dt);
+            if (dt > 20) {
+                ESP_LOGW(TAG, "wireguardif_periodic: %llu ms", (unsigned long long)dt);
+            }
         }
 
         /* Periodic DISCO probes (every 1s check) */
@@ -1646,7 +1641,9 @@ void ml_wg_mgr_task(void *arg) {
             disco_periodic_probes(ml);
             uint64_t dt = ml_get_time_ms() - t0;
             last_disco_probe_ms = now;
-            ESP_LOGI(TAG, "disco_periodic_probes: %llu ms", (unsigned long long)dt);
+            if (dt > 20) {
+                ESP_LOGW(TAG, "disco_periodic_probes: %llu ms", (unsigned long long)dt);
+            }
         }
 
         /* Yield - 10ms loop rate for minimum packet processing latency.

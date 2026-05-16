@@ -166,6 +166,9 @@ static void wg_log_allowed_ips(struct wireguard_peer *peer, const char *prefix) 
 }
 
 static void wg_log_plain_ip(const char *event, struct pbuf *p, int peer_idx, err_t result) {
+	if (!WG_DEBUG_LOGGING) {
+		return;
+	}
 	if (!p || p->tot_len < sizeof(struct ip_hdr)) {
 		ESP_LOGW(TAG, "%s peer=%d len=%u result=%d non-ip-or-short",
 		         event, peer_idx, p ? (unsigned)p->tot_len : 0, result);
@@ -184,7 +187,7 @@ static void wg_log_plain_ip(const char *event, struct pbuf *p, int peer_idx, err
 	char src_s[16], dst_s[16];
 	wg_format_ip4(ip_2_ip4(&src), src_s, sizeof(src_s));
 	wg_format_ip4(ip_2_ip4(&dst), dst_s, sizeof(dst_s));
-	ESP_LOGW(TAG, "%s peer=%d proto=%s(%u) src=%s dst=%s ttl=%u ip_len=%u pbuf_len=%u result=%d",
+	ESP_LOGI(TAG, "%s peer=%d proto=%s(%u) src=%s dst=%s ttl=%u ip_len=%u pbuf_len=%u result=%d",
 	         event, peer_idx, wg_proto_name(IPH_PROTO(iphdr)), (unsigned)IPH_PROTO(iphdr),
 	         src_s, dst_s, (unsigned)IPH_TTL(iphdr),
 	         (unsigned)PP_NTOHS(IPH_LEN(iphdr)), (unsigned)p->tot_len, result);
@@ -554,7 +557,7 @@ static void wireguardif_process_data_message(struct wireguard_device *device, st
 	uint32_t idx = data_hdr->receiver;
 	int peer_idx = (int)(peer - device->peers);
 
-	ESP_LOGI(TAG, "WG_RX_DATA peer=%d receiver_idx=%lu data_len=%u from=%s:%u curr_valid=%d prev_valid=%d next_valid=%d",
+	WG_DEBUG("WG_RX_DATA peer=%d receiver_idx=%lu data_len=%u from=%s:%u curr_valid=%d prev_valid=%d next_valid=%d\n",
 	         peer_idx, (unsigned long)idx, (unsigned)data_len,
 	         ip_addr_isany(addr) ? "DERP" : ipaddr_ntoa(addr), port,
 	         peer->curr_keypair.valid, peer->prev_keypair.valid, peer->next_keypair.valid);
@@ -646,7 +649,7 @@ static void wireguardif_process_data_message(struct wireguard_device *device, st
 										if (IP_ADDR_NETCMP_COMPAT(&src_ip, &peer->allowed_source_ips[x].ip, &peer->allowed_source_ips[x].mask)) {
 											dest_ok = true;
 											header_len = PP_NTOHS(IPH_LEN(iphdr));
-											ESP_LOGI(TAG, "WG_RX_ALLOWED peer=%d rule=%d header_len=%u",
+											WG_DEBUG("WG_RX_ALLOWED peer=%d rule=%d header_len=%u\n",
 											         peer_idx, x, (unsigned)header_len);
 											WG_DEBUG("[WG_RX_IP] Allowed by rule %d (src matches), header_len=%u\n", x, (unsigned)header_len);
 											break;
@@ -672,7 +675,7 @@ static void wireguardif_process_data_message(struct wireguard_device *device, st
 								// 5. If the plaintext packet has not been dropped, it is inserted into the receive queue of the wg0 interface.
 								if (dest_ok) {
 									// Send packet to be processed by LWIP
-									ESP_LOGW(TAG, "WG_RX_TO_IP peer=%d len=%u netif=%c%c%d napt=%d flags=0x%02x",
+									WG_DEBUG("WG_RX_TO_IP peer=%d len=%u netif=%c%c%d napt=%d flags=0x%02x\n",
 									         peer_idx, (unsigned)pbuf->tot_len,
 									         device->netif->name[0], device->netif->name[1],
 									         device->netif->num, device->netif->napt,

@@ -110,11 +110,11 @@ CONFIG_ESP_TASK_WDT_TIMEOUT_S=30
 # Filosofía AGENTS.md §5: HTTPD interno desactivado.
 # Filosofía AGENTS.md §3: Tailscale desactivado por defecto.
 # Sin cellular ni network-switch (no aplica al repetidor WiFi).
-# Sin zero-copy WG (evita raw lwIP PCB en IDF 6.1).
+# Zero-copy WG evita el cuello BSD socket + cola FreeRTOS en subnet routing.
 CONFIG_ML_ENABLE_CONFIG_HTTPD=n
 CONFIG_ML_ENABLE_CELLULAR=n
 CONFIG_ML_ENABLE_NET_SWITCH=n
-CONFIG_ML_ZERO_COPY_WG=n
+CONFIG_ML_ZERO_COPY_WG=y
 CONFIG_ML_MAX_PEERS=8
 CONFIG_ML_NVS_MAX_PEERS=32
 CONFIG_ML_H2_BUFFER_SIZE_KB=256

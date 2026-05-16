@@ -53,16 +53,6 @@ static void route_udp_packet(microlink_t *ml, uint8_t *data, size_t len,
                               uint32_t src_ip, uint16_t src_port) {
     pkt_type_t type = classify_packet(data, len);
 
-    /* Log ALL direct UDP packets for debugging */
-    ESP_LOGI(TAG, "UDP RX: %d bytes from %d.%d.%d.%d:%d type=%s hdr=%02x",
-             (int)len,
-             (int)((src_ip >> 24) & 0xFF), (int)((src_ip >> 16) & 0xFF),
-             (int)((src_ip >> 8) & 0xFF), (int)(src_ip & 0xFF),
-             (int)src_port,
-             type == PKT_DISCO ? "DISCO" : type == PKT_STUN ? "STUN" :
-             type == PKT_WIREGUARD ? "WG" : "UNK",
-             len > 0 ? data[0] : 0xFF);
-
     ml_rx_packet_t pkt = {
         .data = data,
         .len = len,
@@ -144,11 +134,12 @@ void ml_net_io_task(void *arg) {
 
         /* Process DISCO UDP socket */
         if (ml->disco_sock4 >= 0 && FD_ISSET(ml->disco_sock4, &read_fds)) {
-            struct sockaddr_in src_addr;
-            socklen_t addr_len = sizeof(src_addr);
-            int n = ml_recvfrom(ml->disco_sock4, udp_buf, sizeof(udp_buf), 0,
-                             (struct sockaddr *)&src_addr, &addr_len);
-            if (n > 0) {
+            while (true) {
+                struct sockaddr_in src_addr;
+                socklen_t addr_len = sizeof(src_addr);
+                int n = ml_recvfrom(ml->disco_sock4, udp_buf, sizeof(udp_buf), 0,
+                                 (struct sockaddr *)&src_addr, &addr_len);
+                if (n <= 0) break;
                 uint8_t *pkt_data = malloc(n);
                 if (pkt_data) {
                     memcpy(pkt_data, udp_buf, n);
@@ -161,11 +152,12 @@ void ml_net_io_task(void *arg) {
 
         /* Process STUN socket (IPv4) */
         if (ml->stun_sock >= 0 && FD_ISSET(ml->stun_sock, &read_fds)) {
-            struct sockaddr_in src_addr;
-            socklen_t addr_len = sizeof(src_addr);
-            int n = ml_recvfrom(ml->stun_sock, udp_buf, sizeof(udp_buf), 0,
-                             (struct sockaddr *)&src_addr, &addr_len);
-            if (n > 0) {
+            while (true) {
+                struct sockaddr_in src_addr;
+                socklen_t addr_len = sizeof(src_addr);
+                int n = ml_recvfrom(ml->stun_sock, udp_buf, sizeof(udp_buf), 0,
+                                 (struct sockaddr *)&src_addr, &addr_len);
+                if (n <= 0) break;
                 uint8_t *pkt_data = malloc(n);
                 if (pkt_data) {
                     memcpy(pkt_data, udp_buf, n);
@@ -185,11 +177,12 @@ void ml_net_io_task(void *arg) {
 
         /* Process STUN socket (IPv6) */
         if (ml->stun_sock6 >= 0 && FD_ISSET(ml->stun_sock6, &read_fds)) {
-            struct sockaddr_in6 src_addr6;
-            socklen_t addr_len = sizeof(src_addr6);
-            int n = ml_recvfrom(ml->stun_sock6, udp_buf, sizeof(udp_buf), 0,
-                             (struct sockaddr *)&src_addr6, &addr_len);
-            if (n > 0) {
+            while (true) {
+                struct sockaddr_in6 src_addr6;
+                socklen_t addr_len = sizeof(src_addr6);
+                int n = ml_recvfrom(ml->stun_sock6, udp_buf, sizeof(udp_buf), 0,
+                                 (struct sockaddr *)&src_addr6, &addr_len);
+                if (n <= 0) break;
                 uint8_t *pkt_data = malloc(n);
                 if (pkt_data) {
                     memcpy(pkt_data, udp_buf, n);
